@@ -134,5 +134,29 @@ FROM
 
         CURRENT_TIMESTAMP()
 
-    FROM @TAXI_STAGE
+    FROM @TAXI_STAGE/yellow_tripdata_2025-08.parquet
+        (FILE_FORMAT => PARQUET_FORMAT)
+);
+
+----- table TAXI_ZONE_LOOKUP
+COPY INTO TAXI_ZONE_LOOKUP
+(
+    locationid,
+    borough,
+    zone,
+    service_zone,
+    _source_file,
+    _loaded_at
+)
+FROM
+(
+    SELECT
+        $1::INT,
+        $2::TEXT,
+        $3::TEXT,
+        $4::TEXT,
+        METADATA$FILENAME,
+        CURRENT_TIMESTAMP()
+    FROM @TAXI_STAGE/taxi_zone_lookup.csv
+        (FILE_FORMAT => CSV_FORMAT)
 );
