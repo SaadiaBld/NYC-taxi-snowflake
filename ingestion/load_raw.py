@@ -1,23 +1,40 @@
+import os
 import sys
 from pathlib import Path
 
 import snowflake.connector
 from cryptography.hazmat.primitives import serialization
+from dotenv import load_dotenv
 
 
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
 
-ACCOUNT = "LNAQXTU-XK00008"
-USER = "AIRFLOW_SVC"
-ROLE = "TRANSFORMER"
-WAREHOUSE = "NYC_TAXI_WH"
-DATABASE = "NYC_TAXI"
-SCHEMA = "RAW"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
 
-PRIVATE_KEY_PATH = Path("airflow_rsa_key.p8")
-DATA_DIR = Path("data/raw")
+
+def required_setting(name):
+    value = os.getenv(name)
+    if not value:
+        raise SystemExit(f"Erreur : variable {name} manquante dans .env")
+    return value
+
+
+ACCOUNT = required_setting("SNOWFLAKE_ACCOUNT")
+USER = required_setting("SNOWFLAKE_USER")
+ROLE = required_setting("SNOWFLAKE_ROLE")
+WAREHOUSE = required_setting("SNOWFLAKE_WAREHOUSE")
+DATABASE = required_setting("SNOWFLAKE_DATABASE")
+SCHEMA = required_setting("SNOWFLAKE_SCHEMA")
+
+PRIVATE_KEY_PATH = Path(
+    os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", "airflow_rsa_key.p8")
+)
+if not PRIVATE_KEY_PATH.is_absolute():
+    PRIVATE_KEY_PATH = PROJECT_ROOT / PRIVATE_KEY_PATH
+DATA_DIR = PROJECT_ROOT / "data/raw"
 
 
 # ---------------------------------------------------------

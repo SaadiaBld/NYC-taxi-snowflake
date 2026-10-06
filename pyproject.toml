@@ -1,0 +1,17 @@
+[project]
+name = "nyc-taxi-ingestion"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography",
+    "python-dotenv",
+    "snowflake-connector-python",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pip-audit>=2.10.1",
+]

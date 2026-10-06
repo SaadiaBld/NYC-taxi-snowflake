@@ -56,12 +56,12 @@ Le test de connexion du guide affiche votre utilisateur de service, son rôle et
 3. **Créer les formats de fichier, le stage et les deux tables**, avec le rôle des outils.
 4. **Charger le fichier de janvier** : l'envoyer sur le stage (`PUT`, depuis Python), puis le copier dans la table (`COPY INTO`).
 5. **Relancer le même chargement** et vérifier qu'aucune ligne n'est ajoutée en double.
-6. **Écrire un script Python** qui fait ce chargement pour le mois qu'on lui donne, dans `ingestion/`, avec son `requirements.txt`.
+6. **Écrire un script Python** qui fait ce chargement pour le mois qu'on lui donne, dans `ingestion/`, avec son `pyproject.toml` pour gérer les dépendances via uv.
 7. **Charger la liste des 265 zones.**
 
 ### Coup de pouce
 
-Le script a besoin de trois paquets : `requests`, `snowflake-connector-python` et `cryptography`.
+Le script d'ingestion a besoin de `snowflake-connector-python`, `cryptography` et `python-dotenv`. Depuis la racine du dépôt, créez l'environnement avec `uv sync --project ingestion`, puis lancez un mois avec `uv run --project ingestion python ingestion/load_raw.py 2025-01`.
 
 ### Pièges à éviter
 
