@@ -12,10 +12,13 @@ from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 
 
 CONNECTION_ID = "snowflake_nyc_taxi"
+RAW_TABLE = "NYC_TAXI.RAW.YELLOW_TRIPDATA"
+RAW_STAGE = "NYC_TAXI.RAW.TAXI_STAGE"
+PARQUET_FORMAT = "NYC_TAXI.RAW.PARQUET_FORMAT"
 TRIPDATA_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{month}.parquet"
 
-COPY_SQL = """
-    COPY INTO YELLOW_TRIPDATA
+COPY_SQL = f"""
+    COPY INTO {RAW_TABLE}
     (
         vendorid,
         tpep_pickup_datetime,
@@ -65,8 +68,8 @@ COPY_SQL = """
             $1:cbd_congestion_fee::DECIMAL,
             METADATA$FILENAME,
             CURRENT_TIMESTAMP()
-        FROM @TAXI_STAGE/yellow_tripdata_{month}.parquet
-            (FILE_FORMAT => PARQUET_FORMAT)
+        FROM @{RAW_STAGE}/yellow_tripdata_{{month}}.parquet
+            (FILE_FORMAT => '{PARQUET_FORMAT}')
     )
     FORCE = TRUE
     ON_ERROR = 'ABORT_STATEMENT'
@@ -96,7 +99,7 @@ def download_trip_file(month: str, destination: Path) -> None:
 
 @dag(
     dag_id="load_yellow_trips",
-    schedule="@monthly",
+    schedule=None,
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=False,
     max_active_runs=1,
@@ -104,7 +107,7 @@ def download_trip_file(month: str, destination: Path) -> None:
     tags=["snowflake", "raw", "monthly"],
     doc_md=(
         "Charge le fichier TLC Yellow Taxi du mois correspondant à la date logique. "
-        "Les rejeux historiques doivent être lancés explicitement avec Airflow backfill."
+        "Chaque mois doit être lancé explicitement avec une date logique Airflow."
     ),
 )
 def load_yellow_trips():
@@ -128,14 +131,14 @@ def load_yellow_trips():
             cursor = connection.cursor()
             try:
                 put_sql = (
-                    f"PUT file://{local_file.resolve()} @TAXI_STAGE "
+                    f"PUT file://{local_file.resolve()} @{RAW_STAGE} "
                     "AUTO_COMPRESS=FALSE OVERWRITE=FALSE"
                 )
                 cursor.execute(put_sql)
                 logging.info("Résultat PUT pour %s : %s", filename, cursor.fetchall())
 
                 cursor.execute(
-                    "DELETE FROM YELLOW_TRIPDATA WHERE _source_file = %s",
+                    f"DELETE FROM {RAW_TABLE} WHERE _source_file = %s",
                     (filename,),
                 )
                 logging.info(

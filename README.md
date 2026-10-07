@@ -31,11 +31,15 @@ Avant le premier jour, lancez `bash verifier_poste.sh` : tout doit afficher `OK`
 │   ├── parcours.png               les cinq journées en un coup d'œil
 │   ├── FICHE_SOURCE_MODELE.md     modèle de fiche source (jour 1)
 │   └── REPONSE_MODELE.md          modèle de réponse à la direction (jour 5)
-└── airflow/
-    ├── requirements.txt           dépendances Python du projet Airflow
+└── airflow/                       projet Astro autonome
+    ├── .astro/                    configuration Astro
+    ├── Dockerfile                 image Airflow
+    ├── requirements.txt           providers et dépendances Airflow
     ├── .env.example               format de la connexion Snowflake
-    ├── dags/                      À ÉCRIRE : votre DAG
-    └── include/sql/               FOURNI : les fichiers SQL, à ne pas modifier
+    ├── dags/                      DAGs Airflow
+    └── include/
+        ├── airflow_rsa_key.p8     clé privée locale, jamais versionnée
+        └── sql/                   fichiers SQL fournis, à ne pas modifier
         ├── 00_tables.sql          crée les trois tables alimentées mois par mois
         ├── staging/               2 vues de renommage + les tables de codes
         ├── intermediate/          trajets étiquetés, puis trajets valides enrichis
@@ -88,14 +92,10 @@ Les quatre paramètres attendus par les fichiers fournis :
 
 ```bash
 cd airflow
-astro dev init                    # le dossier n'est pas vide : répondre y
+cp .env.example .env              # renseigner les valeurs du compte Snowflake
 ```
 
-`astro dev init` génère le `Dockerfile` et les fichiers du projet, sans toucher à `requirements.txt` ni à `include/`. Ensuite :
-
-1. Supprimer `dags/exampledag.py`.
-2. Créer le fichier `airflow/.env` à partir de `airflow/.env.example`. La clé privée y tient sur une seule ligne : voir la section 3 du guide Airflow.
-3. Démarrer :
+Le projet Astro est déjà initialisé dans `airflow/`. Placez la clé privée sous `airflow/include/airflow_rsa_key.p8`, puis démarrez :
 
 ```bash
 astro dev start
@@ -104,7 +104,18 @@ astro dev start
 L'adresse de l'interface est affichée à la fin de la commande.
 
 - L'identifiant de connexion à utiliser dans votre code est `snowflake_nyc_taxi`.
-- Un DAG est en pause à sa création : activez-le avec son interrupteur. N'utilisez pas le bouton Trigger pour le DAG de chargement : il lance une exécution datée d'aujourd'hui.
+- Le DAG `load_yellow_trips` utilise le mois de sa date logique Airflow. Il télécharge le Parquet TLC dans le conteneur, l'envoie vers `TAXI_STAGE`, puis le copie dans `RAW.YELLOW_TRIPDATA`.
+- Le chargement remplace d'abord les lignes portant le même nom de fichier, puis utilise `FORCE=TRUE` : un rejeu explicite ne dépend donc pas de la durée de conservation de l'historique de chargement Snowflake.
+- Le DAG est en pause à sa création et `catchup=False` évite de lancer automatiquement tous les mois historiques. Après vérification que `TAXI_STAGE`, `PARQUET_FORMAT` et `YELLOW_TRIPDATA` existent, activez-le et déclenchez les trois dates logiques voulues depuis ce dossier :
+
+```bash
+astro dev run dags unpause load_yellow_trips
+astro dev run dags trigger -l 2025-01-01T00:00:00+00:00 load_yellow_trips
+astro dev run dags trigger -l 2025-02-01T00:00:00+00:00 load_yellow_trips
+astro dev run dags trigger -l 2025-03-01T00:00:00+00:00 load_yellow_trips
+astro dev run dags list-runs load_yellow_trips
+```
+
 - Quand vous ajoutez des tâches à un DAG dont les exécutions sont déjà terminées, elles ne tournent pas toutes seules : ouvrez chaque exécution et relancez-la avec Clear.
 
 ## Résultats attendus

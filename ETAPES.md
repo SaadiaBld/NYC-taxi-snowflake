@@ -84,17 +84,16 @@ Le script d'ingestion a besoin de `snowflake-connector-python`, `cryptography` e
 ### Étapes
 
 1. **Lire les sections 1 à 5 du guide.** Son exemple ne se lance pas tel quel : il se lit, puis se transpose.
-2. **Créer le projet Airflow** dans le dossier `airflow/` (commandes dans le `README.md` du kit) et le démarrer.
-3. **Donner à Airflow l'accès à Snowflake** sans écrire la clé dans le code ni dans l'image Docker : le fichier `airflow/.env`, créé à partir de `.env.example`.
+2. **Démarrer le projet Astro** déjà initialisé dans `airflow/` (commandes dans le `README.md` du kit).
+3. **Donner à Airflow l'accès à Snowflake** sans écrire la clé dans le code ni dans l'image Docker : le fichier `airflow/.env`, créé à partir de `airflow/.env.example`, et la clé sous `airflow/include/`.
 4. **Prouver la connexion** avec un DAG d'une seule tâche qui exécute `SELECT CURRENT_ROLE()`.
-5. **Écrire le DAG de chargement** : vérifier que le fichier du mois existe, le télécharger, l'envoyer sur le stage, le copier dans la table avec les mêmes options qu'au jour 2.
-6. **Calculer le nom du fichier** à partir du mois traité par l'exécution, pas à partir de la date du jour.
-7. **Activer le DAG** avec son interrupteur et le laisser rejouer janvier, février et mars.
+5. **Lire `airflow/dags/load_yellow_trips.py`** : la date logique donne le mois, le fichier TLC est téléchargé dans le conteneur, puis envoyé au stage et copié dans RAW.
+6. **Activer le DAG** `load_yellow_trips`, puis déclencher explicitement les dates logiques de janvier, février et mars avec les commandes du README.
 
 ### Pièges à éviter
 
-- Ne cliquez pas sur **Trigger** pour le DAG de chargement : une exécution lancée à la main prend la date du jour, et le fichier de ce mois n'existe pas.
-- Après toute modification de `.env`, relancez `astro dev restart`.
+- Ne déclenchez pas le DAG sans date logique historique : il choisirait le mois courant. Pour rejouer un mois, fournissez le premier jour de ce mois comme date logique.
+- Après toute modification de `airflow/.env`, relancez `astro dev restart` depuis `airflow/`.
 - Beaucoup de tutoriels utilisent Airflow 2, dont le code diffère : la section 1 du guide donne les correspondances.
 - L'identifiant de connexion utilisé dans votre code est `snowflake_nyc_taxi` (celui de `.env.example`).
 
