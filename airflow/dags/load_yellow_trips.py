@@ -9,6 +9,8 @@ import pendulum
 import requests
 from airflow.sdk import dag, get_current_context, task
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
+from airflow.utils.task_group import TaskGroup
+from airflow.providers.common.sql.operators.sql import SQLCheckOperator, SQLExecuteQueryOperator
 
 
 CONNECTION_ID = "snowflake_nyc_taxi"
@@ -16,6 +18,7 @@ RAW_TABLE = "NYC_TAXI.RAW.YELLOW_TRIPDATA"
 RAW_STAGE = "NYC_TAXI.RAW.TAXI_STAGE"
 PARQUET_FORMAT = "NYC_TAXI.RAW.PARQUET_FORMAT"
 TRIPDATA_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{month}.parquet"
+SQL_DIRECTORY = Path(__file__).resolve().parents[1] / "include" / "sql"
 
 COPY_SQL = f"""
     COPY INTO {RAW_TABLE}
@@ -104,14 +107,29 @@ def download_trip_file(month: str, destination: Path) -> None:
     catchup=False,
     max_active_runs=1,
     default_args={"owner": "data-eng", "retries": 2, "retry_delay": timedelta(minutes=1)},
+    template_searchpath=[str(SQL_DIRECTORY)],
+    params={
+        "max_trip_distance_miles": 100,
+        "max_trip_duration_min": 180,
+        "max_rejection_pct": 10,
+        "start_month": "2025-01-01",
+        "end_month": "2025-04-01",
+    },
     tags=["snowflake", "raw", "monthly"],
     doc_md=(
-        "Charge le fichier TLC Yellow Taxi du mois correspondant à la date logique. "
-        "Chaque mois doit être lancé explicitement avec une date logique Airflow."
+        "Charge le fichier TLC Yellow Taxi du mois correspondant à la date logique, "
+        "puis transforme et contrôle les données jusqu'aux marts."
     ),
 )
 def load_yellow_trips():
-    ''' '''
+    def execute_sql(task_id: str, sql_file: str) -> SQLExecuteQueryOperator:
+        return SQLExecuteQueryOperator(
+            task_id=task_id,
+            conn_id=CONNECTION_ID,
+            sql=sql_file,
+            split_statements=True,
+        )
+
     @task(task_id="download_and_load_month")
     def download_and_load_month() -> None:
         logical_date = get_current_context().get("logical_date")
@@ -154,7 +172,61 @@ def load_yellow_trips():
                 cursor.close()
                 connection.close()
 
-    download_and_load_month()
+    load_raw = download_and_load_month()
+
+    check_raw_month = SQLCheckOperator(
+        task_id="check_raw_month_loaded",
+        conn_id=CONNECTION_ID,
+        sql="controles/raw_mois_charge.sql",
+        retries=0,
+    )
+
+    with TaskGroup(group_id="staging", tooltip="Vues et tables de référence") as staging:
+        execute_sql("codes_tlc", "staging/codes_tlc.sql")
+        execute_sql("stg_taxi_zones", "staging/stg_tlc__taxi_zones.sql")
+        execute_sql("stg_yellow_trips", "staging/stg_tlc__yellow_trips.sql")
+
+    create_intermediate_tables = execute_sql("create_intermediate_tables", "00_tables.sql")
+
+    with TaskGroup(
+        group_id="intermediate", tooltip="Contrôle et enrichissement des trajets"
+    ) as intermediate:
+        flagged = execute_sql("flag_trips", "intermediate/int_trips__flagged.sql")
+        check_rejection_rate = SQLCheckOperator(
+            task_id="check_rejection_rate",
+            conn_id=CONNECTION_ID,
+            sql="controles/taux_trajets_rejetes.sql",
+            retries=0,
+        )
+        enriched = execute_sql("enrich_trips", "intermediate/int_trips__enriched.sql")
+        check_duplicate_trips = SQLCheckOperator(
+            task_id="check_duplicate_trips",
+            conn_id=CONNECTION_ID,
+            sql="controles/trajets_en_double.sql",
+            retries=0,
+        )
+        flagged >> check_rejection_rate >> enriched >> check_duplicate_trips
+
+    with TaskGroup(group_id="marts", tooltip="Dimensions, faits et tables d'analyse") as marts:
+        dim_date = execute_sql("dim_date", "marts/dim_date.sql")
+        dim_payment_type = execute_sql("dim_payment_type", "marts/dim_payment_type.sql")
+        dim_rate_code = execute_sql("dim_rate_code", "marts/dim_rate_code.sql")
+        dim_vendor = execute_sql("dim_vendor", "marts/dim_vendor.sql")
+        dim_zone = execute_sql("dim_zone", "marts/dim_zone.sql")
+        fact_trips = execute_sql("fact_trips", "marts/fct_trips.sql")
+        daily_revenue = execute_sql("mart_daily_revenue", "marts/mart_daily_revenue.sql")
+        execute_sql("mart_data_quality", "marts/mart_data_quality.sql")
+        zone_hourly_demand = execute_sql(
+            "mart_zone_hourly_demand", "marts/mart_zone_hourly_demand.sql"
+        )
+
+        [fact_trips, dim_date, dim_payment_type] >> daily_revenue
+        [fact_trips, dim_zone] >> zone_hourly_demand
+
+    load_raw >> check_raw_month
+    check_raw_month >> [staging, create_intermediate_tables]
+    [staging, create_intermediate_tables] >> intermediate
+    intermediate >> marts
 
 
 load_yellow_trips()
