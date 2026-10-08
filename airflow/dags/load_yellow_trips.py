@@ -111,7 +111,7 @@ def download_trip_file(month: str, destination: Path) -> None:
     params={
         "max_trip_distance_miles": 100,
         "max_trip_duration_min": 180,
-        "max_rejection_pct": 10,
+        "max_rejection_pct": 30,
         "start_month": "2025-01-01",
         "end_month": "2025-04-01",
     },
