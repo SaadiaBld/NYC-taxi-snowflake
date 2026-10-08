@@ -103,7 +103,7 @@ def download_trip_file(month: str, destination: Path) -> None:
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=False,
     max_active_runs=1,
-    default_args={"owner": "data-eng", "retries": 2, "retry_delay": timedelta(minutes=5)},
+    default_args={"owner": "data-eng", "retries": 2, "retry_delay": timedelta(minutes=1)},
     tags=["snowflake", "raw", "monthly"],
     doc_md=(
         "Charge le fichier TLC Yellow Taxi du mois correspondant à la date logique. "
@@ -111,10 +111,11 @@ def download_trip_file(month: str, destination: Path) -> None:
     ),
 )
 def load_yellow_trips():
+    ''' '''
     @task(task_id="download_and_load_month")
     def download_and_load_month() -> None:
         logical_date = get_current_context().get("logical_date")
-        if logical_date is None:
+        if not logical_date:
             raise ValueError("La date logique Airflow est requise pour choisir le fichier")
 
         month = logical_date.strftime("%Y-%m")
@@ -132,7 +133,7 @@ def load_yellow_trips():
             try:
                 put_sql = (
                     f"PUT file://{local_file.resolve()} @{RAW_STAGE} "
-                    "AUTO_COMPRESS=FALSE OVERWRITE=FALSE"
+                    "AUTO_COMPRESS=FALSE OVERWRITE=TRUE"
                 )
                 cursor.execute(put_sql)
                 logging.info("Résultat PUT pour %s : %s", filename, cursor.fetchall())
