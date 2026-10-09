@@ -138,21 +138,3 @@ Les nombres de référence indiqués par le brief après chargement de janvier �
 | `NYC_TAXI.MARTS.MART_DATA_QUALITY` | 18 |
 
 Ce sont des résultats attendus, pas une mesure de votre compte. Vérifiez les journaux Airflow et les tables Snowflake après l'exécution.
-
-## Captures d'écran
-
-### Graphe du DAG et des tâches
-
-[capture ecran]
-
-### Exécution réussie et contrôles
-
-[capture ecran]
-
-### Résultats dans Snowflake
-
-[capture ecran]
-
-## Auteurs
-
-À compléter avec les noms des auteurs du projet.
