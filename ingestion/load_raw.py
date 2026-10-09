@@ -100,7 +100,7 @@ try:
 
     put_sql = f"""
         PUT file://{parquet_file.resolve()}
-        @TAXI_STAGE
+        @NYC_TAXI.RAW.TAXI_STAGE
         AUTO_COMPRESS=FALSE
         OVERWRITE=FALSE
     """
@@ -117,7 +117,7 @@ try:
     # -----------------------------------------------------
 
     copy_sql = f"""
-        COPY INTO YELLOW_TRIPDATA
+        COPY INTO NYC_TAXI.RAW.YELLOW_TRIPDATA
         (
             vendorid,
             tpep_pickup_datetime,
@@ -167,8 +167,8 @@ try:
                 $1:cbd_congestion_fee::DECIMAL,
                 METADATA$FILENAME,
                 CURRENT_TIMESTAMP()
-            FROM @TAXI_STAGE/yellow_tripdata_{month}.parquet
-                (FILE_FORMAT => PARQUET_FORMAT)
+            FROM @NYC_TAXI.RAW.TAXI_STAGE/yellow_tripdata_{month}.parquet
+                (FILE_FORMAT => 'NYC_TAXI.RAW.PARQUET_FORMAT')
         )
     """
 

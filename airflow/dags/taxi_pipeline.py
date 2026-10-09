@@ -101,7 +101,7 @@ def download_trip_file(month: str, destination: Path) -> None:
 
 
 @dag(
-    dag_id="load_yellow_trips",
+    dag_id="nyc_taxi_pipeline",
     schedule=None,
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=False,
@@ -121,7 +121,7 @@ def download_trip_file(month: str, destination: Path) -> None:
         "puis transforme et contrôle les données jusqu'aux marts."
     ),
 )
-def load_yellow_trips():
+def nyc_taxi_pipeline():
     def execute_sql(task_id: str, sql_file: str) -> SQLExecuteQueryOperator:
         return SQLExecuteQueryOperator(
             task_id=task_id,
@@ -229,4 +229,4 @@ def load_yellow_trips():
     intermediate >> marts
 
 
-load_yellow_trips()
+dag = nyc_taxi_pipeline()

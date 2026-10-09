@@ -16,7 +16,7 @@ Chaque journée suit le même plan : le guide à suivre d'abord, les étapes, le
 1. **Lire le schéma du pipeline** (`docs/architecture.png`) : repérer les sources, les quatre couches et ce que fait chaque outil.
 2. **Explorer le fichier de janvier** et remplir la fiche source des trajets, à partir du modèle `docs/FICHE_SOURCE_MODELE.md`.
 3. **Suivre le guide** sur son exemple (`SALES_DB`), dans votre compte Snowflake.
-4. **Écrire le script SQL qui crée l'entrepôt**, dans `snowflake/` : warehouse, base, schémas, rôle des outils, utilisateur de service.
+4. **Écrire le script SQL qui crée l'entrepôt**, dans `snowflake/sql/00_infrastructure.sql` : warehouse, base, schémas, rôle des outils, utilisateur de service.
 5. **Générer la paire de clés** et vérifier que l'utilisateur de service se connecte depuis votre poste.
 
 ### Coup de pouce
@@ -53,11 +53,12 @@ Le test de connexion du guide affiche votre utilisateur de service, son rôle et
 
 1. **Lire `CONTRAT_RAW.md`** : les tables et les colonnes que votre entrepôt doit contenir, avec leurs noms exacts.
 2. **Suivre le guide** sur son exemple.
-3. **Créer les formats de fichier, le stage et les deux tables**, avec le rôle des outils.
+3. **Créer les formats de fichier, le stage et les deux tables**, avec le rôle des outils, en exécutant `snowflake/sql/01_raw.sql` après le script d'infrastructure.
 4. **Charger le fichier de janvier** : l'envoyer sur le stage (`PUT`, depuis Python), puis le copier dans la table (`COPY INTO`).
 5. **Relancer le même chargement** et vérifier qu'aucune ligne n'est ajoutée en double.
 6. **Écrire un script Python** qui fait ce chargement pour le mois qu'on lui donne, dans `ingestion/`, avec son `pyproject.toml` pour gérer les dépendances via uv.
 7. **Charger la liste des 265 zones.**
+8. **Vérifier les tables RAW** avec les requêtes de `snowflake/sql/90_verification_raw.sql`.
 
 ### Coup de pouce
 
