@@ -138,3 +138,49 @@ Les nombres de référence indiqués par le brief après chargement de janvier �
 | `NYC_TAXI.MARTS.MART_DATA_QUALITY` | 18 |
 
 Ce sont des résultats attendus, pas une mesure de votre compte. Vérifiez les journaux Airflow et les tables Snowflake après l'exécution.
+
+## Scripts pour répondre aux questions
+
+### 1. Où et quand y a-t-il le plus de départs ?
+WITH demand AS (
+    SELECT
+        DATE_TRUNC('MONTH', t.pickup_date) AS month,
+        z.borough AS pickup_borough,
+        z.zone_name AS pickup_zone,
+        t.pickup_hour,
+        COUNT(*) AS trip_count
+    FROM NYC_TAXI.MARTS.FCT_TRIPS AS t
+    LEFT JOIN NYC_TAXI.MARTS.DIM_ZONE AS z
+        ON t.pickup_zone_key = z.zone_key
+    GROUP BY 1, 2, 3, 4
+),
+ranked_demand AS (
+    SELECT
+        *,
+        RANK() OVER (
+            PARTITION BY month
+            ORDER BY trip_count DESC
+        ) AS rank_in_month
+    FROM demand
+)
+SELECT *
+FROM ranked_demand
+WHERE rank_in_month <= 10
+ORDER BY month, rank_in_month;
+
+### 2 . Quel montant est associé à un trajet selon zone, heure et paiement ?
+SELECT
+    z.borough AS pickup_borough,
+    z.zone_name AS pickup_zone,
+    t.pickup_hour,
+    p.payment_type_label,
+    COUNT(*) AS trip_count,
+    ROUND(AVG(t.total_amount), 2) AS avg_total_per_trip,
+    ROUND(SUM(t.total_amount), 2) AS total_revenue
+FROM NYC_TAXI.MARTS.FCT_TRIPS AS t
+LEFT JOIN NYC_TAXI.MARTS.DIM_ZONE AS z
+    ON t.pickup_zone_key = z.zone_key
+LEFT JOIN NYC_TAXI.MARTS.DIM_PAYMENT_TYPE AS p
+    ON t.payment_type_key = p.payment_type_key
+GROUP BY ALL
+ORDER BY avg_total_per_trip DESC;
