@@ -229,4 +229,4 @@ ORDER BY source_file_month, rejection_reason;
 
 ```
 Résultats de la requete de controle de qualité
-![alt text](image.png)
+![Résultats de la comparaison des trajets anormaux avec MART_DATA_QUALITY](docs/image.png)
