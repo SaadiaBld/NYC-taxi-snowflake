@@ -142,6 +142,7 @@ Ce sont des résultats attendus, pas une mesure de votre compte. Vérifiez les j
 ## Scripts pour répondre aux questions
 
 ### 1. Où et quand y a-t-il le plus de départs ?
+```
 WITH demand AS (
     SELECT
         DATE_TRUNC('MONTH', t.pickup_date) AS month,
@@ -167,8 +168,11 @@ SELECT *
 FROM ranked_demand
 WHERE rank_in_month <= 10
 ORDER BY month, rank_in_month;
+```
 
 ### 2 . Quel montant est associé à un trajet selon zone, heure et paiement ?
+
+```
 SELECT
     z.borough AS pickup_borough,
     z.zone_name AS pickup_zone,
@@ -184,3 +188,45 @@ LEFT JOIN NYC_TAXI.MARTS.DIM_PAYMENT_TYPE AS p
     ON t.payment_type_key = p.payment_type_key
 GROUP BY ALL
 ORDER BY avg_total_per_trip DESC;
+
+```
+
+### 3. Verifier que les trajets anormaux issus de INT_TRIPS_FLAGGED correspondent à ceux de MART_DATA_QUALITY
+
+``` 
+WITH flagged_counts AS (
+    SELECT
+        source_file,
+        source_file_month,
+        rejection_reason AS status,
+        COUNT(*) AS flagged_count
+    FROM NYC_TAXI.INTERMEDIATE.INT_TRIPS__FLAGGED
+    WHERE rejection_reason IS NOT NULL
+    GROUP BY source_file, source_file_month, rejection_reason
+),
+mart_counts AS (
+    SELECT
+        source_file,
+        source_file_month,
+        status,
+        nb_rows AS mart_count
+    FROM NYC_TAXI.MARTS.MART_DATA_QUALITY
+    WHERE status <> 'valid'
+)
+SELECT
+    COALESCE(f.source_file, m.source_file) AS source_file,
+    COALESCE(f.source_file_month, m.source_file_month) AS source_file_month,
+    COALESCE(f.status, m.status) AS rejection_reason,
+    COALESCE(f.flagged_count, 0) AS flagged_count,
+    COALESCE(m.mart_count, 0) AS mart_count,
+    COALESCE(f.flagged_count, 0) - COALESCE(m.mart_count, 0) AS difference
+FROM flagged_counts AS f
+FULL OUTER JOIN mart_counts AS m
+    ON f.source_file = m.source_file
+   AND f.source_file_month = m.source_file_month
+   AND f.status = m.status
+ORDER BY source_file_month, rejection_reason;
+
+```
+Résultats de la requete de controle de qualité
+![alt text](image.png)
